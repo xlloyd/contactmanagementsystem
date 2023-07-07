@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include <vector>
+#include <unordered_map>
 #include <algorithm>
 #include <regex>
 #include <limits>
@@ -15,7 +15,7 @@ public:
     std::string emailAddress;
 };
 
-std::vector<Contact> contacts;
+std::unordered_map<std::string, Contact> contacts;
 
 // Function prototypes
 bool compareContacts(const Contact& contact1, const Contact& contact2);
@@ -34,6 +34,7 @@ bool isValidEmailAddress(const std::string& emailAddress);
 // File path for the DAT file
 const std::string FILE_PATH = "contacts.dat";
 
+
 // Function to compare contacts by name for sorting
 bool compareContacts(const Contact& contact1, const Contact& contact2) {
     return contact1.name < contact2.name;
@@ -43,11 +44,11 @@ bool checkAbort() {
     std::string userInput;
     std::cout << "Enter 'abort' to cancel: ";
     std::cin >> userInput;
-    return (userInput == "abort" || userInput == "Abort"|| userInput == "ABORT");
+    return (userInput == "abort" || userInput == "Abort" || userInput == "ABORT");
 }
 
 // Function to search for contacts by name, email, or phone number
- void searchContacts(const std::string& searchQuery) {
+void searchContacts(const std::string& searchQuery) {
     if (searchQuery == "abort") {
         std::cout << "Search process was aborted by the user.\n";
         return;
@@ -55,8 +56,9 @@ bool checkAbort() {
 
     std::vector<Contact> searchResults;
     for (const auto& contact : contacts) {
-        if (contact.name == searchQuery || contact.phoneNumber == searchQuery || contact.emailAddress == searchQuery) {
-            searchResults.push_back(contact);
+        const Contact& currentContact = contact.second;
+        if (currentContact.name == searchQuery || currentContact.phoneNumber == searchQuery || currentContact.emailAddress == searchQuery) {
+            searchResults.push_back(currentContact);
         }
     }
 
@@ -91,8 +93,6 @@ bool checkAbort() {
     }
 }
 
-
-
 // Function to add a new contact
 void addContact() {
     Contact newContact;
@@ -114,10 +114,7 @@ void addContact() {
         }
     }
 
-    auto duplicateContact = std::find_if(contacts.begin(), contacts.end(), [&newContact](const Contact& c) {
-        return c.name == newContact.name;
-    });
-
+    auto duplicateContact = contacts.find(newContact.name);
     if (duplicateContact != contacts.end()) {
         std::cout << "Contact with the same name already exists!\n";
         std::cout << "Press enter to continue...";
@@ -137,8 +134,8 @@ void addContact() {
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cin.get();
         } else {
-            auto duplicatePhone = std::find_if(contacts.begin(), contacts.end(), [&newContact](const Contact& c) {
-                return c.phoneNumber == newContact.phoneNumber;
+            auto duplicatePhone = std::find_if(contacts.begin(), contacts.end(), [&newContact](const std::pair<std::string, Contact>& c) {
+                return c.second.phoneNumber == newContact.phoneNumber;
             });
 
             if (duplicatePhone != contacts.end()) {
@@ -164,8 +161,8 @@ void addContact() {
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cin.get();
         } else {
-            auto duplicateEmail = std::find_if(contacts.begin(), contacts.end(), [&newContact](const Contact& c) {
-                return c.emailAddress == newContact.emailAddress;
+            auto duplicateEmail = std::find_if(contacts.begin(), contacts.end(), [&newContact](const std::pair<std::string, Contact>& c) {
+                return c.second.emailAddress == newContact.emailAddress;
             });
 
             if (duplicateEmail != contacts.end()) {
@@ -180,105 +177,7 @@ void addContact() {
         }
     } while (true);
 
-    std::set<std::string> additionalPhoneNumbers;
-    std::string hasAnotherPhoneNumber;
-    while (true) {
-        clearScreen();
-        std::cout << "Do you have another phone number? (yes/no): ";
-        std::cin >> hasAnotherPhoneNumber;
-
-        // Convert input to lowercase for case-insensitive comparison
-        std::transform(hasAnotherPhoneNumber.begin(), hasAnotherPhoneNumber.end(), hasAnotherPhoneNumber.begin(), [](unsigned char c) {
-            return std::tolower(c);
-        });
-
-        if (hasAnotherPhoneNumber == "yes" || hasAnotherPhoneNumber == "y") {
-            std::string additionalPhoneNumber;
-            std::cout << "Enter additional phone number (11 digits): ";
-            std::cin >> additionalPhoneNumber;
-
-            if (!isValidPhoneNumber(additionalPhoneNumber)) {
-                std::cout << "Invalid phone number! Phone number must be 11 digits.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-                continue;
-            }
-
-            if (additionalPhoneNumbers.find(additionalPhoneNumber) != additionalPhoneNumbers.end() ||
-                newContact.phoneNumber.find(additionalPhoneNumber) != std::string::npos ||
-                std::any_of(contacts.begin(), contacts.end(), [&additionalPhoneNumber](const Contact& c) {
-                    return c.phoneNumber == additionalPhoneNumber || c.phoneNumber.find(additionalPhoneNumber) != std::string::npos;
-                })) {
-                std::cout << "Duplicate phone number! Please enter a uniquephone number.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-                continue;
-            }
-
-            additionalPhoneNumbers.insert(additionalPhoneNumber);
-            newContact.phoneNumber += ", " + additionalPhoneNumber;
-        } else if (hasAnotherPhoneNumber == "no" || hasAnotherPhoneNumber == "n") {
-            break;
-        } else {
-            std::cout << "Invalid input! Please answer 'yes' or 'no'.\n";
-            std::cout << "Press enter to continue...";
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cin.get();
-        }
-    }
-
-    std::set<std::string> additionalEmailAddresses;
-    std::string hasAnotherEmailAddress;
-    while (true) {
-        clearScreen();
-        std::cout << "Do you have another email address? (yes/no): ";
-        std::cin >> hasAnotherEmailAddress;
-
-        // Convert input to lowercase for case-insensitive comparison
-        std::transform(hasAnotherEmailAddress.begin(), hasAnotherEmailAddress.end(), hasAnotherEmailAddress.begin(), [](unsigned char c) {
-            return std::tolower(c);
-        });
-
-        if (hasAnotherEmailAddress == "yes" || hasAnotherEmailAddress == "y") {
-            std::string additionalEmailAddress;
-            std::cout << "Enter additional email address: ";
-            std::cin >> additionalEmailAddress;
-
-            if (!isValidEmailAddress(additionalEmailAddress)) {
-                std::cout << "Invalid email address!\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-                continue;
-            }
-
-            if (additionalEmailAddresses.find(additionalEmailAddress) != additionalEmailAddresses.end() ||
-                newContact.emailAddress.find(additionalEmailAddress) != std::string::npos ||
-                std::any_of(contacts.begin(), contacts.end(), [&additionalEmailAddress](const Contact& c) {
-                    return c.emailAddress == additionalEmailAddress || c.emailAddress.find(additionalEmailAddress) != std::string::npos;
-                })) {
-                std::cout << "Duplicate email address! Please enter a unique email address.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-                continue;
-            }
-
-            additionalEmailAddresses.insert(additionalEmailAddress);
-            newContact.emailAddress += ", " + additionalEmailAddress;
-        } else if (hasAnotherEmailAddress == "no" || hasAnotherEmailAddress == "n") {
-            break;
-        } else {
-            std::cout << "Invalid input! Please answer 'yes' or 'no'.\n";
-            std::cout << "Press enter to continue...";
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cin.get();
-        }
-    }
-
-    contacts.push_back(newContact);
+    contacts[newContact.name] = newContact;
     saveContacts();
 
     std::cout << "Contact added successfully!\n";
@@ -294,16 +193,29 @@ void deleteContact() {
     std::cin.ignore();
     std::getline(std::cin, searchQuery);
 
-    auto contact = std::find_if(contacts.begin(), contacts.end(), [&searchQuery](const Contact& c) {
-        return c.name == searchQuery || c.phoneNumber == searchQuery || c.emailAddress == searchQuery;
+    auto contact = std::find_if(contacts.begin(), contacts.end(), [&searchQuery](const std::pair<std::string, Contact>& c) {
+        const Contact& currentContact = c.second;
+        return currentContact.name == searchQuery || currentContact.phoneNumber == searchQuery || currentContact.emailAddress == searchQuery;
     });
 
     if (contact != contacts.end()) {
-        contacts.erase(contact);
-        saveContacts();
-        std::cout << "Contact deleted successfully!\n";
+        std::cout << "Are you sure you want to delete the following contact?\n";
+        std::cout << "Name: " << contact->second.name << "\n";
+        std::cout << "Phone: " << contact->second.phoneNumber << "\n";
+        std::cout << "Email: " << contact->second.emailAddress << "\n";
+        std::cout << "Enter 'delete' to confirm deletion: ";
+        std::string confirmation;
+        std::cin >> confirmation;
+
+        if (confirmation == "delete") {
+            contacts.erase(contact);
+            saveContacts();
+            std::cout << "Contact deleted successfully!\n";
+        } else {
+            std::cout << "Contact deletion canceled!\n";
+        }
     } else {
-        std::cout << "Contact not found!\n";
+        std::cout << "No matching contact found!\n";
     }
 
     std::cout << "Press enter to continue...";
@@ -314,219 +226,57 @@ void deleteContact() {
 // Function to modify an existing contact
 void modifyContact() {
     std::string searchQuery;
-    std::cout << "Enter the name, phone number, or email of the contact to modify or abort:";
+    std::cout << "Enter the name, phone number, or email of the contact to modify: ";
     std::cin.ignore();
     std::getline(std::cin, searchQuery);
 
-     if (searchQuery == "abort") {
-        std::cout << "Contact modification process was aborted.\n";
-        return;
-    }
-
-    auto contact = std::find_if(contacts.begin(), contacts.end(), [&searchQuery](const Contact& c) {
-        return c.name == searchQuery || c.phoneNumber == searchQuery || c.emailAddress == searchQuery;
+    auto contact = std::find_if(contacts.begin(), contacts.end(), [&searchQuery](const std::pair<std::string, Contact>& c) {
+        const Contact& currentContact = c.second;
+        return currentContact.name == searchQuery || currentContact.phoneNumber == searchQuery || currentContact.emailAddress == searchQuery;
     });
 
     if (contact != contacts.end()) {
-        Contact modifiedContact = *contact;
+        std::cout << "Current contact information:\n";
+        std::cout << "Name: " << contact->second.name << "\n";
+        std::cout << "Phone: " << contact->second.phoneNumber << "\n";
+        std::cout << "Email: " << contact->second.emailAddress << "\n\n";
 
-        clearScreen(); // Clear the screen
+        Contact modifiedContact = contact->second;
 
-        std::cout << "Current Contact Details:\n";
-        std::cout << std::left << std::setw(12) << "Name:" << modifiedContact.name << "\n";
-        std::cout << std::left << std::setw(12) << "Phone:" << modifiedContact.phoneNumber << "\n";
-        std::cout << std::left << std::setw(12) << "Email:" << modifiedContact.emailAddress << "\n\n";
-
-        std::string newName, newPhoneNumber, newEmailAddress;
-
-        while (true) {
-            std::cout << "Enter new contact name (full name) or abort: ";
-            std::getline(std::cin, newName);
-
-            if (newName == "abort") {
-                std::cout << "Contact modification process was aborted.\n";
-                return;
-            }
-
-            // Check if the modified contact name consists of at least two words
-            size_t spaceIndex = newName.find(' ');
-            if (spaceIndex == std::string::npos) {
-                std::cout << "Invalid name! Please enter the full name (first name and last name).\n";
-                continue;
-            } else if (std::any_of(contacts.begin(), contacts.end(), [&newName](const Contact& c) {
-                return c.name == newName;
-            })) {
-                std::cout << "Name already exists!\n";
-                continue;
-            } else {
-                modifiedContact.name = newName;
-                break;
-            }
+        std::cout << "Enter new contact name (or enter 'skip' to keep the current name): ";
+        std::string newName;
+        std::getline(std::cin, newName);
+        if (newName != "skip") {
+            modifiedContact.name = newName;
         }
 
-        while (true) {
-            std::cout << "Enter new phone number (11 digits) or abort: ";
-            std::getline(std::cin, newPhoneNumber);
-
-            if (newPhoneNumber == "abort") {
-                std::cout << "Contact modification process was aborted.\n";
-                return;
-            }
-
-            // Perform input validation for the phone number
-            if (!isValidPhoneNumber(newPhoneNumber)) {
-                std::cout << "Invalid phone number! Phone number must be 11 digits.\n";
-                continue;
-            } else if (std::any_of(contacts.begin(), contacts.end(), [&newPhoneNumber](const Contact& c) {
-                return c.phoneNumber == newPhoneNumber;
-            })) {
-                std::cout << "Phone number already exists!\n";
-                continue;
-            } else {
-                modifiedContact.phoneNumber = newPhoneNumber;
-                break;
-            }
+        std::cout << "Enter new contact phone number (or enter 'skip' to keep the current number): ";
+        std::string newPhoneNumber;
+        std::getline(std::cin, newPhoneNumber);
+        if (newPhoneNumber != "skip" && isValidPhoneNumber(newPhoneNumber)) {
+            modifiedContact.phoneNumber = newPhoneNumber;
         }
 
-        while (true) {
-            std::cout << "Enter new email address or abort: ";
-            std::getline(std::cin, newEmailAddress);
-
-            if (newEmailAddress == "abort") {
-                std::cout << "Contact modification process was aborted.\n";
-                return;
-            }
-
-            // Perform input validation for the email address
-            if (!isValidEmailAddress(newEmailAddress)) {
-                std::cout << "Invalid email address!\n";
-                continue;
-            } else if (std::any_of(contacts.begin(), contacts.end(), [&newEmailAddress](const Contact& c) {
-                return c.emailAddress == newEmailAddress;
-            })) {
-                std::cout << "Email address already exists!\n";
-                continue;
-            } else {
-                modifiedContact.emailAddress = newEmailAddress;
-                break;
-            }
+        std::cout << "Enter new contact email address (or enter 'skip' to keep the current address): ";
+        std::string newEmailAddress;
+        std::getline(std::cin, newEmailAddress);
+        if (newEmailAddress != "skip" && isValidEmailAddress(newEmailAddress)) {
+            modifiedContact.emailAddress = newEmailAddress;
         }
 
-        // Additional phone numbers
-        std::set<std::string> additionalPhoneNumbers;
-        std::string hasAnotherPhoneNumber;
-        while (true) {
-            clearScreen();
-            std::cout << "Do you have another phone number? (yes/no): ";
-            std::cin >> hasAnotherPhoneNumber;
-
-            // Convert input to lowercase for case-insensitive comparison
-            std::transform(hasAnotherPhoneNumber.begin(), hasAnotherPhoneNumber.end(), hasAnotherPhoneNumber.begin(), [](unsigned char c) {
-                return std::tolower(c);
-            });
-
-            if (hasAnotherPhoneNumber == "yes" || hasAnotherPhoneNumber == "y") {
-                std::string additionalPhoneNumber;
-                std::cout << "Enter additional phone number (11 digits): ";
-                std::cin.ignore();
-                std::getline(std::cin, additionalPhoneNumber);
-
-                if (!isValidPhoneNumber(additionalPhoneNumber)) {
-                    std::cout << "Invalid phone number! Phone number must be 11 digits.\n";
-                    std::cout << "Press enter to continue...";
-                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                    std::cin.get();
-                    continue;
-                }
-
-                if (additionalPhoneNumbers.find(additionalPhoneNumber) != additionalPhoneNumbers.end() ||
-                    modifiedContact.phoneNumber.find(additionalPhoneNumber) != std::string::npos ||
-                    std::any_of(contacts.begin(), contacts.end(), [&additionalPhoneNumber](const Contact& c) {
-                        return c.phoneNumber == additionalPhoneNumber || c.phoneNumber.find(additionalPhoneNumber) != std::string::npos;
-                    })) {
-                    std::cout << "Duplicate phone number! Please enter a unique phone number.\n";
-                    std::cout << "Press enter to continue...";
-                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                    std::cin.get();
-                    continue;
-                }
-
-                additionalPhoneNumbers.insert(additionalPhoneNumber);
-                modifiedContact.phoneNumber += ", " + additionalPhoneNumber;
-            } else if (hasAnotherPhoneNumber == "no" || hasAnotherPhoneNumber == "n") {
-                break;
-            } else {
-                std::cout << "Invalid input! Please answer 'yes' or 'no'.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-            }
-        }
-
-        // Additional email addresses
-        std::set<std::string> additionalEmailAddresses;
-        std::string hasAnotherEmailAddress;
-        while (true) {
-            clearScreen();
-            std::cout << "Do you have another email address? (yes/no): ";
-            std::cin >> hasAnotherEmailAddress;
-
-            // Convert input to lowercase for case-insensitive comparison
-            std::transform(hasAnotherEmailAddress.begin(), hasAnotherEmailAddress.end(), hasAnotherEmailAddress.begin(), [](unsigned char c) {
-                return std::tolower(c);
-            });
-
-            if (hasAnotherEmailAddress == "yes" || hasAnotherEmailAddress == "y") {
-                std::string additionalEmailAddress;
-                std::cout << "Enter additional email address: ";
-                std::cin.ignore();
-                std::getline(std::cin, additionalEmailAddress);
-
-                if (!isValidEmailAddress(additionalEmailAddress)) {
-                    std::cout << "Invalid email address!\n";
-                    std::cout << "Press enter to continue...";
-                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                    std::cin.get();
-                    continue;
-                }
-
-                if (additionalEmailAddresses.find(additionalEmailAddress) != additionalEmailAddresses.end() ||
-                    modifiedContact.emailAddress.find(additionalEmailAddress) != std::string::npos ||
-                    std::any_of(contacts.begin(), contacts.end(), [&additionalEmailAddress](const Contact& c) {
-                        return c.emailAddress == additionalEmailAddress || c.emailAddress.find(additionalEmailAddress) != std::string::npos;
-                    })) {
-                    std::cout << "Duplicate email address! Please enter a unique email address.\n";
-                    std::cout << "Press enter to continue...";
-                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                    std::cin.get();
-                    continue;
-                }
-
-                additionalEmailAddresses.insert(additionalEmailAddress);
-               additionalEmailAddresses.insert(additionalEmailAddress);
-                modifiedContact.emailAddress += ", " + additionalEmailAddress;
-            } else if (hasAnotherEmailAddress == "no" || hasAnotherEmailAddress == "n") {
-                break;
-            } else {
-                std::cout << "Invalid input! Please answer 'yes' or 'no'.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
-            }
-        }
-
-        *contact = modifiedContact;
+        contacts.erase(contact);
+        contacts[modifiedContact.name] = modifiedContact;
         saveContacts();
 
         std::cout << "Contact modified successfully!\n";
-     } else {
-        std::cout << "Contact not found!\n";
+    } else {
+        std::cout << "No matching contact found!\n";
     }
 
     std::cout << "Press enter to continue...";
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cin.get();
 }
-
 
 // Function to display all contacts
 void displayContacts() {
@@ -534,8 +284,13 @@ void displayContacts() {
         std::cout << "No contacts found!\n";
     } else {
         std::cout << "Contacts:\n";
-        std::vector<Contact> sortedContacts = contacts;  // Create a copy of contacts vector
-        std::sort(sortedContacts.begin(), sortedContacts.end(), compareContacts);  // Sort the copy
+
+        std::vector<Contact> sortedContacts;
+        for (const auto& contact : contacts) {
+            sortedContacts.push_back(contact.second);
+        }
+
+        std::sort(sortedContacts.begin(), sortedContacts.end(), compareContacts);
 
         std::size_t maxPhoneNumberLength = 0;
         for (const auto& contact : sortedContacts) {
@@ -553,50 +308,38 @@ void displayContacts() {
     std::cin.get();
 }
 
-
-
 // Function to load contacts from the DAT file
 void loadContacts() {
-    std::ifstream inputFile(FILE_PATH);
-    if (!inputFile) {
-        std::cout << "Contacts file not found. Creating a new file.\n";
-        return;
+    std::ifstream file(FILE_PATH, std::ios::binary);
+
+    if (file.is_open()) {
+        contacts.clear();
+        while (!file.eof()) {
+            Contact contact;
+            file.read(reinterpret_cast<char*>(&contact), sizeof(Contact));
+            if (!file.eof()) {
+                contacts[contact.name] = contact;
+            }
+        }
+        file.close();
     }
-
-    contacts.clear();
-
-    std::string line;
-    while (std::getline(inputFile, line)) {
-        Contact contact;
-        contact.name = line;
-        std::getline(inputFile, contact.phoneNumber);
-        std::getline(inputFile, contact.emailAddress);
-        contacts.push_back(contact);
-    }
-
-    inputFile.close();
 }
 
 // Function to save contacts to the DAT file
 void saveContacts() {
-    std::ofstream outputFile(FILE_PATH);
-    if (!outputFile) {
-        std::cout << "Failed to create or open the contacts file.\n";
-        return;
-    }
+    std::ofstream file(FILE_PATH, std::ios::binary);
 
-    for (const auto& contact : contacts) {
-        outputFile << contact.name << "\n";
-        outputFile << contact.phoneNumber << "\n";
-        outputFile << contact.emailAddress << "\n";
+    if (file.is_open()) {
+        for (const auto& contact : contacts) {
+            file.write(reinterpret_cast<const char*>(&contact.second), sizeof(Contact));
+        }
+        file.close();
     }
-
-    outputFile.close();
 }
 
-// Function to display the menu options
+// Function to display the main menu
 void displayMenu() {
-    clearScreen(); // Clear the screen
+    clearScreen();
     std::cout << "Contact Management System\n";
     std::cout << "-------------------------\n";
     std::cout << "1. Add Contact\n";
@@ -604,50 +347,40 @@ void displayMenu() {
     std::cout << "3. Delete Contact\n";
     std::cout << "4. Display Contacts\n";
     std::cout << "5. Search Contacts\n";
-    std::cout << "6. Exit\n";
+    std::cout << "6. Quit\n";
+    std::cout << "Enter your choice: ";
 }
 
 // Function to clear the console screen
 void clearScreen() {
 #ifdef _WIN32
-    std::system("cls");
+    system("cls");
 #else
-    std::system("clear");
+    system("clear");
 #endif
 }
 
 // Function to validate a phone number
 bool isValidPhoneNumber(const std::string& phoneNumber) {
-    // Phone number must be 11 digits
-    return std::regex_match(phoneNumber, std::regex("\\d{11}"));
+    // Match exactly 11 digits
+    std::regex regex("\\d{11}");
+    return std::regex_match(phoneNumber, regex);
 }
 
 // Function to validate an email address
 bool isValidEmailAddress(const std::string& emailAddress) {
-    // Simple email validation using a regular expression
-    return std::regex_match(emailAddress, std::regex("[\\w-]+(\\.[\\w-]+)*@[\\w-]+(\\.[\\w-]+)*(\\.[a-zA-Z]{2,})"));
+    // Match email address format using a simple regex pattern
+    std::regex regex("[\\w-]+(\\.[\\w-]+)*@[\\w-]+(\\.[\\w-]+)*\\.[a-zA-Z]{2,}");
+    return std::regex_match(emailAddress, regex);
 }
 
 int main() {
     loadContacts();
 
     int choice;
-
     while (true) {
         displayMenu();
-        std::cout << "Enter your choice (1-6): ";
         std::cin >> choice;
-
-        if (std::cin.fail()) {
-            std::cin.clear(); // Clear error flags
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Ignore remaining characters in input buffer
-            clearScreen(); // Clear the screen
-            std::cout << "Invalid choice! Please try again.\n";
-            std::cout << "Press enter to continue...";
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cin.get();
-            continue;
-        }
 
         switch (choice) {
             case 1:
@@ -663,28 +396,21 @@ int main() {
                 displayContacts();
                 break;
             case 5: {
+                std::cout << "Enter the name, phone number, or email to search for: ";
                 std::string searchQuery;
-                clearScreen();
-                std::cout << "Enter search query (name, email, or phone number) or enter 'abort' to cancel: ";
                 std::cin.ignore();
                 std::getline(std::cin, searchQuery);
                 searchContacts(searchQuery);
                 break;
             }
             case 6:
-                clearScreen();
                 saveContacts();
-                std::cout << "Thank you for using the Contact Management System!\n";
+                clearScreen();
+                std::cout << "Thank you for using the Contact Management System. Goodbye!\n";
                 return 0;
             default:
-                clearScreen();
                 std::cout << "Invalid choice! Please try again.\n";
-                std::cout << "Press enter to continue...";
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cin.get();
                 break;
         }
     }
-
-    return 0;
 }
