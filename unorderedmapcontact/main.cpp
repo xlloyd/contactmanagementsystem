@@ -34,7 +34,6 @@ bool isValidEmailAddress(const std::string& emailAddress);
 // File path for the DAT file
 const std::string FILE_PATH = "contacts.dat";
 
-
 // Function to compare contacts by name for sorting
 bool compareContacts(const Contact& contact1, const Contact& contact2) {
     return contact1.name < contact2.name;
@@ -153,7 +152,8 @@ void addContact() {
     do {
         clearScreen();
         std::cout << "Enter contact email address: ";
-        std::cin >> newContact.emailAddress;
+        std::cin.ignore();
+        std::getline(std::cin, newContact.emailAddress);
 
         if (!isValidEmailAddress(newContact.emailAddress)) {
             std::cout << "Invalid email address!\n";
@@ -193,11 +193,7 @@ void deleteContact() {
     std::cin.ignore();
     std::getline(std::cin, searchQuery);
 
-    auto contact = std::find_if(contacts.begin(), contacts.end(), [&searchQuery](const std::pair<std::string, Contact>& c) {
-        const Contact& currentContact = c.second;
-        return currentContact.name == searchQuery || currentContact.phoneNumber == searchQuery || currentContact.emailAddress == searchQuery;
-    });
-
+    auto contact = contacts.find(searchQuery);
     if (contact != contacts.end()) {
         std::cout << "Are you sure you want to delete the following contact?\n";
         std::cout << "Name: " << contact->second.name << "\n";
@@ -237,9 +233,9 @@ void modifyContact() {
 
     if (contact != contacts.end()) {
         std::cout << "Current contact information:\n";
-        std::cout << "Name: " << contact->second.name << "\n";
-        std::cout << "Phone: " << contact->second.phoneNumber << "\n";
-        std::cout << "Email: " << contact->second.emailAddress << "\n\n";
+        std::cout << std::setw(10) << std::left << "Name:" << contact->second.name << "\n";
+        std::cout << std::setw(10) << std::left << "Phone:" << contact->second.phoneNumber << "\n";
+        std::cout << std::setw(10) << std::left << "Email:" << contact->second.emailAddress << "\n\n";
 
         Contact modifiedContact = contact->second;
 
@@ -310,33 +306,45 @@ void displayContacts() {
 
 // Function to load contacts from the DAT file
 void loadContacts() {
-    std::ifstream file(FILE_PATH, std::ios::binary);
+    std::ifstream file(FILE_PATH);
 
-    if (file.is_open()) {
-        contacts.clear();
-        while (!file.eof()) {
-            Contact contact;
-            file.read(reinterpret_cast<char*>(&contact), sizeof(Contact));
-            if (!file.eof()) {
-                contacts[contact.name] = contact;
-            }
-        }
-        file.close();
+    if (!file) {
+        std::cerr << "Error opening file for reading.\n";
+        return;
     }
+
+    contacts.clear();
+    std::string line;
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string name, phoneNumber, emailAddress;
+        if (std::getline(iss, name, '\t') && std::getline(iss, phoneNumber, '\t') && std::getline(iss, emailAddress)) {
+            Contact contact;
+            contact.name = name;
+            contact.phoneNumber = phoneNumber;
+            contact.emailAddress = emailAddress;
+            contacts[contact.name] = contact;
+        }
+    }
+
+    file.close();
 }
 
 // Function to save contacts to the DAT file
 void saveContacts() {
-    std::ofstream file(FILE_PATH, std::ios::binary);
+    std::ofstream file(FILE_PATH);
 
-    if (file.is_open()) {
-        for (const auto& contact : contacts) {
-            file.write(reinterpret_cast<const char*>(&contact.second), sizeof(Contact));
-        }
-        file.close();
+    if (!file) {
+        std::cerr << "Error opening file for writing.\n";
+        return;
     }
-}
 
+    for (const auto& contact : contacts) {
+        file << contact.second.name << '\t' << contact.second.phoneNumber << '\t' << contact.second.emailAddress << '\n';
+    }
+
+    file.close();
+}
 // Function to display the main menu
 void displayMenu() {
     clearScreen();
@@ -378,9 +386,22 @@ int main() {
     loadContacts();
 
     int choice;
+
     while (true) {
         displayMenu();
+        std::cout << "Enter your choice (1-6): ";
         std::cin >> choice;
+
+        if (std::cin.fail()) {
+            std::cin.clear(); // Clear error flags
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Ignore remaining characters in input buffer
+            clearScreen(); // Clear the screen
+            std::cout << "Invalid choice! Please try again.\n";
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Press enter to continue...";
+            std::cin.get();
+            continue;
+        }
 
         switch (choice) {
             case 1:
@@ -396,21 +417,28 @@ int main() {
                 displayContacts();
                 break;
             case 5: {
-                std::cout << "Enter the name, phone number, or email to search for: ";
                 std::string searchQuery;
+                clearScreen();
+                std::cout << "Enter search query (name, email, or phone number): ";
                 std::cin.ignore();
                 std::getline(std::cin, searchQuery);
                 searchContacts(searchQuery);
                 break;
             }
             case 6:
-                saveContacts();
                 clearScreen();
-                std::cout << "Thank you for using the Contact Management System. Goodbye!\n";
+                saveContacts();
+                std::cout << "Thank you for using the Contact Management System!\n";
                 return 0;
             default:
+                clearScreen();
                 std::cout << "Invalid choice! Please try again.\n";
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+                std::cout << "Press enter to continue...";
+                std::cin.get();
                 break;
         }
     }
+
+    return 0;
 }
