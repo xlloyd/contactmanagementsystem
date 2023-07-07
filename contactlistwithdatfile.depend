@@ -1,0 +1,12 @@
+# depslib dependency file v1.0
+1688728471 source:c:\users\jeroein magno\documents\c++\contactlistwithdatfile\main.cpp
+	<iostream>
+	<fstream>
+	<vector>
+	<algorithm>
+	<regex>
+	<limits>
+	<set>
+	<cctype>
+	<iomanip>
+
